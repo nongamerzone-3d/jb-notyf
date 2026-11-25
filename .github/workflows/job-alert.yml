@@ -1,0 +1,39 @@
+name: CGTrader job alert
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install playwright requests
+          playwright install --with-deps chromium
+
+      - name: Check for new jobs
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          KEYWORDS: ${{ vars.KEYWORDS }}
+        run: python cgtrader_job_alert.py
+
+      - name: Save seen jobs
+        run: |
+          git config user.name "job-alert-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add seen_jobs.json
+          git diff --staged --quiet || (git commit -m "update seen jobs" && git push)
